@@ -161,6 +161,12 @@ Once the application is running:
 * Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 * OpenAPI JSON: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 
+### Postman Collection
+
+For quick testing, you can import the ready-to-use Postman collection:
+
+👉 [StudentManagementFull.postman_collection.json](./StudentManagementFull.postman_collection.json)
+
 ### Authentication Endpoints
 
 | Method | Endpoint           | Description      | Auth Required |
