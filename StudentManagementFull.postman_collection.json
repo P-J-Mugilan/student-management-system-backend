@@ -1,0 +1,980 @@
+{
+  "info": {
+    "name": "Student Management System API",
+    "description": "Complete REST API for Student Management System with role-based access control. This system supports Admin and Professor roles with different permissions.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "jwtToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "professorToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "branchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "studentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "professorId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "studentEmail",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication Endpoints",
+      "description": "User authentication and authorization endpoints for login, logout, and session management",
+      "item": [
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate user with username and password. Returns JWT token that must be used for all protected endpoints. Default admin credentials: username='admin', password='admin123'"
+          },
+          "response": [
+            {
+              "name": "Login Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save JWT token to environment variables",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.token).to.not.be.null;",
+                  "    ",
+                  "    pm.environment.set(\"jwtToken\", response.data.token);",
+                  "    pm.environment.set(\"currentUser\", response.data.username);",
+                  "    ",
+                  "    console.log(\"Login successful - Token saved for user: \" + response.data.username);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get details of currently authenticated user. Returns user information including userId, username, role, and branch details."
+          },
+          "response": [
+            {
+              "name": "Current User Details",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "User Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout current user and clear security context. The JWT token will be blacklisted and cannot be used again. Client must remove the token from storage."
+          },
+          "response": [
+            {
+              "name": "Logout Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Clear token from environment after logout",
+                  "pm.test(\"Logout successful\", function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "    ",
+                  "    // Clear the token from environment",
+                  "    pm.environment.unset(\"jwtToken\");",
+                  "    console.log(\"Logout successful - Token cleared\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Operations - Branch Management",
+      "description": "Academic branch management endpoints. These endpoints are accessible only by users with ADMIN role.",
+      "item": [
+        {
+          "name": "Create New Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Computer Science\",\n    \"description\": \"Department of Computer Science and Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/branches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "branches"]
+            },
+            "description": "Create a new academic branch. Only users with ADMIN role can access this endpoint. Branch names must be unique."
+          },
+          "response": [
+            {
+              "name": "Branch Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Computer Science\",\n    \"description\": \"Department of Computer Science and Engineering\"\n}"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewtype": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save branch ID for later use",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.branchId).to.not.be.null;",
+                  "    ",
+                  "    pm.environment.set(\"branchId\", response.data.branchId);",
+                  "    console.log(\"Branch created with ID: \" + response.data.branchId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Branches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/branches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "branches"]
+            },
+            "description": "Retrieve list of all academic branches in the system. Only accessible by ADMIN users."
+          },
+          "response": [
+            {
+              "name": "Branches List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Get Branch by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/branches/{{branchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "branches", "{{branchId}}"]
+            },
+            "description": "Retrieve specific branch details by branch ID. Only accessible by ADMIN users."
+          },
+          "response": [
+            {
+              "name": "Branch Details",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Update Branch",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Computer Science - Updated\",\n    \"description\": \"Updated description for Computer Science department\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/branches/{{branchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "branches", "{{branchId}}"]
+            },
+            "description": "Update existing branch information. Only accessible by ADMIN users. Branch name must remain unique."
+          },
+          "response": [
+            {
+              "name": "Branch Updated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Computer Science - Updated\",\n    \"description\": \"Updated description for Computer Science department\"\n}"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Delete Branch",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/branches/{{branchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "branches", "{{branchId}}"]
+            },
+            "description": "Delete academic branch by ID. Only accessible by ADMIN users. Branch cannot be deleted if it has associated students or professors."
+          },
+          "response": [
+            {
+              "name": "Branch Deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Operations - User Management",
+      "description": "System user management endpoints. These endpoints are accessible only by users with ADMIN role for managing professors and other admins.",
+      "item": [
+        {
+          "name": "Create New User (Professor/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"professor1\",\n    \"password\": \"professor123\",\n    \"role\": \"PROFESSOR\",\n    \"branchId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Register new system user. ADMIN users can create other ADMIN users or PROFESSOR users. Professors must be assigned to a branch, while Admins have no branch association."
+          },
+          "response": [
+            {
+              "name": "User Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"professor1\",\n    \"password\": \"professor123\",\n    \"role\": \"PROFESSOR\",\n    \"branchId\": 1\n}"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewtype": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save professor ID for later use",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.userId).to.not.be.null;",
+                  "    ",
+                  "    pm.environment.set(\"professorId\", response.data.userId);",
+                  "    console.log(\"User created with ID: \" + response.data.userId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Retrieve list of all system users. Only accessible by ADMIN users. Returns information about all users including their roles and branch assignments."
+          },
+          "response": [
+            {
+              "name": "Users List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{professorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{professorId}}"]
+            },
+            "description": "Retrieve specific user details by user ID. Only accessible by ADMIN users."
+          },
+          "response": [
+            {
+              "name": "User Details",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{professorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{professorId}}"]
+            },
+            "description": "Delete system user by ID. Only accessible by ADMIN users. Cannot delete users that have active associations."
+          },
+          "response": [
+            {
+              "name": "User Deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Student Management - Protected Endpoints",
+      "description": "Student management endpoints accessible by both ADMIN and PROFESSOR users. Professors can only access students from their assigned branch.",
+      "item": [
+        {
+          "name": "Create New Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john.doe@student.com\",\n    \"age\": 20,\n    \"gender\": \"MALE\",\n    \"branchId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students"]
+            },
+            "description": "Register new student in the system. ADMIN users can create students in any branch. PROFESSOR users can only create students in their own assigned branch."
+          },
+          "response": [
+            {
+              "name": "Student Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john.doe@student.com\",\n    \"age\": 20,\n    \"gender\": \"MALE\",\n    \"branchId\": 1\n}"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewtype": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save student ID and email for later use",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.studentId).to.not.be.null;",
+                  "    ",
+                  "    pm.environment.set(\"studentId\", response.data.studentId);",
+                  "    pm.environment.set(\"studentEmail\", response.data.email);",
+                  "    console.log(\"Student created with ID: \" + response.data.studentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students"]
+            },
+            "description": "Retrieve list of students. ADMIN users see all students from all branches. PROFESSOR users only see students from their assigned branch."
+          },
+          "response": [
+            {
+              "name": "Students List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Get Student by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "{{studentId}}"]
+            },
+            "description": "Retrieve specific student details by student ID. ADMIN users can access any student. PROFESSOR users can only access students from their assigned branch."
+          },
+          "response": [
+            {
+              "name": "Student Details",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Get Students by Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/branch/{{branchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "branch", "{{branchId}}"]
+            },
+            "description": "Retrieve all students belonging to a specific branch. ADMIN users can access any branch. PROFESSOR users can only access their own assigned branch. Returns 404 if branch does not exist."
+          },
+          "response": [
+            {
+              "name": "Branch Students",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe Updated\",\n    \"email\": \"john.updated@student.com\",\n    \"age\": 21,\n    \"gender\": \"MALE\",\n    \"branchId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "{{studentId}}"]
+            },
+            "description": "Update existing student information. ADMIN users can update any student and change their branch. PROFESSOR users can only update students from their branch and cannot change the branch."
+          },
+          "response": [
+            {
+              "name": "Student Updated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"John Doe Updated\",\n    \"email\": \"john.updated@student.com\",\n    \"age\": 21,\n    \"gender\": \"MALE\",\n    \"branchId\": 1\n}"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "{{studentId}}"]
+            },
+            "description": "Remove student from the system. ADMIN users can delete any student. PROFESSOR users can only delete students from their assigned branch."
+          },
+          "response": [
+            {
+              "name": "Student Deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwtToken}}"
+                  }
+                ]
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Student Management - Public Endpoints",
+      "description": "Public student endpoints that do not require authentication. These endpoints are accessible without JWT tokens.",
+      "item": [
+        {
+          "name": "Get Student by Email (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/public/email/{{studentEmail}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "public", "email", "{{studentEmail}}"]
+            },
+            "description": "Retrieve student information by email address. This endpoint is publicly accessible and does not require authentication. Students can use this to view their own details."
+          },
+          "response": [
+            {
+              "name": "Student Details Public",
+              "originalRequest": {
+                "method": "GET",
+                "header": []
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewtype": "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Testing Workflows",
+      "description": "Pre-defined testing workflows to verify the complete system functionality",
+      "item": [
+        {
+          "name": "Complete Admin Workflow",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/debug/public",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "debug", "public"]
+            },
+            "description": "Complete testing workflow for ADMIN users:\n1. Login as Admin\n2. Create Branch\n3. Create Professor User\n4. Create Student\n5. Test all admin endpoints\n6. Logout\n\nUse this workflow to verify all ADMIN functionalities."
+          }
+        },
+        {
+          "name": "Professor Role Restriction Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/debug/public",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "debug", "public"]
+            },
+            "description": "Testing workflow for PROFESSOR role restrictions:\n1. Login as Professor\n2. Try to create student in correct branch (should work)\n3. Try to create student in wrong branch (should fail)\n4. Try to access admin endpoints (should fail)\n5. Verify can only see their branch students\n\nUse this to verify professor branch restrictions work correctly."
+          }
+        },
+        {
+          "name": "Logout Security Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/debug/public",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "debug", "public"]
+            },
+            "description": "Testing workflow for logout security:\n1. Login and get token\n2. Use token to access protected endpoint (should work)\n3. Logout\n4. Try to use same token again (should fail)\n5. Login again to get new token\n\nUse this to verify token blacklisting works correctly."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "console.log('Student Management System API Tests');",
+          "console.log('Base URL: ' + pm.environment.get('baseUrl'));"
+        ]
+      }
+    }
+  ]
+}
