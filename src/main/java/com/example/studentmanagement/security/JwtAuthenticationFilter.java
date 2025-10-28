@@ -32,8 +32,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String requestURI = request.getRequestURI();
 
-        // Skip JWT filter for login and public endpoints
-        if (requestURI.startsWith("/api/auth/login") ||
+        // Skip JWT filter for Swagger, login, and public endpoints
+        if (requestURI.startsWith("/swagger-ui") ||
+                requestURI.startsWith("/v3/api-docs") ||
+                requestURI.startsWith("/api-docs") ||
+                requestURI.startsWith("/webjars") ||
+                requestURI.startsWith("/swagger-resources") ||
+                requestURI.startsWith("/api/auth/login") ||
                 requestURI.startsWith("/api/debug/") ||
                 requestURI.startsWith("/api/students/public/")) {
             chain.doFilter(request, response);
@@ -50,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Check if token is blacklisted
             if (tokenBlacklist.isBlacklisted(jwt)) {
-                System.out.println("🚫 Blocked blacklisted token for: " + requestURI);
+                System.out.println("Blocked blacklisted token for: " + requestURI);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"success\": false, \"message\": \"Token has been invalidated. Please login again.\"}");
@@ -60,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 username = jwtUtil.extractUsername(jwt);
             } catch (Exception e) {
-                System.out.println("❌ Invalid JWT token: " + e.getMessage());
+                System.out.println("Invalid JWT token: " + e.getMessage());
             }
         }
 
@@ -73,10 +78,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    System.out.println("✅ Authenticated user: " + username);
+                    System.out.println("Authenticated user: " + username);
                 }
             } catch (Exception e) {
-                System.out.println("❌ Authentication failed for user: " + username);
+                System.out.println("Authentication failed for user: " + username);
             }
         }
         chain.doFilter(request, response);

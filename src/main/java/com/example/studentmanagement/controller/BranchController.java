@@ -23,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/branches")
 @Tag(name = "2. Branch Management", description = "Academic branch management endpoints (Admin access only)")
+@CrossOrigin(origins = "*")
 public class BranchController {
 
     private final BranchService branchService;

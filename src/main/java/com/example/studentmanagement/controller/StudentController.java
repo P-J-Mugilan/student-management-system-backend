@@ -102,6 +102,7 @@ public class StudentController {
      */
     @GetMapping("/branch/{branchId}")
     @Operation(summary = "Get Students by Branch", description = "Retrieve all students belonging to a specific branch")
+    @CrossOrigin(origins = "*")
     public ResponseEntity<ApiResponse<List<Student>>> getStudentsByBranch(
             @PathVariable Long branchId) {
         List<Student> students = studentService.getStudentsByBranch(branchId);

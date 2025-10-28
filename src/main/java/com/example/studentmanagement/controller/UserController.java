@@ -23,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @Tag(name = "3. User Management", description = "System user management endpoints (Admin access only)")
+@CrossOrigin(origins = "*")
 public class UserController {
 
     private final UserService userService;
