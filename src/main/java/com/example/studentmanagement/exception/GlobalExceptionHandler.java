@@ -1,3 +1,9 @@
+/**
+ * Global Exception Handler
+ *
+ * Centralized exception handling for the entire application.
+ * Converts exceptions to standardized API responses with proper HTTP status codes.
+ */
 package com.example.studentmanagement.exception;
 
 import com.example.studentmanagement.dto.ApiResponse;
@@ -42,9 +48,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    /**
+     * Handles validation errors from @Valid annotations
+     * Returns first validation error with field-specific details
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleValidationErrors(MethodArgumentNotValidException ex) {
-        // Get the first validation error
         FieldError firstError = ex.getBindingResult().getFieldErrors().get(0);
         ValidationErrorResponse errorResponse = new ValidationErrorResponse(
                 firstError.getField(),
@@ -60,6 +69,10 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Fallback handler for uncaught exceptions
+     * Prevents exposing internal error details to clients
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
         ApiResponse<Object> response = ApiResponse.error(

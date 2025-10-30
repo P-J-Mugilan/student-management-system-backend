@@ -1,3 +1,9 @@
+/**
+ * Custom User Details Service
+ *
+ * Spring Security service for loading user details during authentication.
+ * Converts application User entities to Spring Security UserDetails.
+ */
 package com.example.studentmanagement.security;
 
 import com.example.studentmanagement.entity.User;

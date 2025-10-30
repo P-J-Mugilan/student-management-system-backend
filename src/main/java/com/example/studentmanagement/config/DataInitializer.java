@@ -1,3 +1,9 @@
+/**
+ * Data Initializer
+ *
+ * Creates default system data on application startup.
+ * Ensures essential users exist for system operation.
+ */
 package com.example.studentmanagement.config;
 
 import com.example.studentmanagement.entity.Role;

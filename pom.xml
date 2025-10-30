@@ -4,15 +4,6 @@
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-	<licenses>
-		<license>
-			<name>MIT License</name>
-			<url>https://opensource.org/licenses/MIT</url>
-			<distribution>repo</distribution>
-		</license>
-	</licenses>
-
-
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
@@ -26,9 +17,10 @@
 	<artifactId>student-management</artifactId>
 	<version>1.0.0</version>
 	<name>student-management</name>
+	<packaging>jar</packaging>
 
 	<properties>
-		<java.version>24</java.version>
+		<java.version>21</java.version>
 	</properties>
 
 	<dependencies>
@@ -89,21 +81,16 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Proper Spring Boot testing starter -->
+		<!-- Spring Boot testing - NO spring-security-test for now -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>org.testng</groupId>
-			<artifactId>testng</artifactId>
-			<version>RELEASE</version>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 	<build>
+		<finalName>student-management</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

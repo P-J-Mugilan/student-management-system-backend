@@ -1,3 +1,9 @@
+/**
+ * Authentication Service Implementation
+
+ * Handles user authentication using Spring Security and JWT tokens.
+ * Manages login/logout operations with token blacklisting.
+ */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.JwtResponse;
@@ -34,28 +40,23 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public JwtResponse login(LoginRequest request) {
         try {
-            System.out.println("🔐 Login attempt for: " + request.getUsername());
-
-            // Authenticate user (works for both Admin and Professor)
+            // Authenticate user credentials
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Get user from database
+            // Get user details from database
             User user = userRepository.findByUsername(request.getUsername())
                     .orElseThrow(() -> new UnauthorizedException("User not found"));
 
             // Generate JWT token
             String jwt = jwtUtil.generateToken((UserDetails) authentication.getPrincipal());
 
-            System.out.println("✅ Login successful for: " + user.getUsername() + ", Role: " + user.getRole());
-
             return new JwtResponse(jwt, user.getUsername(), user.getRole().name());
 
         } catch (Exception e) {
-            System.out.println("❌ Login failed: " + e.getMessage());
             throw new UnauthorizedException("Invalid username or password");
         }
     }
@@ -63,27 +64,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String token) {
         try {
-            // Get current user before clearing context
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String username = authentication != null ? authentication.getName() : "Unknown";
-            String role = authentication != null && authentication.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")) ? "ADMIN" : "PROFESSOR";
-
-            System.out.println("👤 Logging out user: " + username + ", Role: " + role);
-
+            // Blacklist token to prevent reuse
             if (token != null) {
-                // Add token to blacklist
                 tokenBlacklist.blacklistToken(token);
-                System.out.println("✅ Token blacklisted successfully");
             }
 
             // Clear security context
             SecurityContextHolder.clearContext();
-            System.out.println("✅ Security context cleared");
-            System.out.println("🎯 " + role + " user fully logged out");
 
         } catch (Exception e) {
-            System.out.println("❌ Error during logout: " + e.getMessage());
             throw new RuntimeException("Logout failed: " + e.getMessage());
         }
     }

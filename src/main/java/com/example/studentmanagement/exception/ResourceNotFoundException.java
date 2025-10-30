@@ -1,3 +1,9 @@
+/**
+ * Resource Not Found Exception
+ *
+ * Thrown when requested resource doesn't exist (HTTP 404).
+ * Provides descriptive messages for missing entities.
+ */
 package com.example.studentmanagement.exception;
 
 public class ResourceNotFoundException extends BaseException {

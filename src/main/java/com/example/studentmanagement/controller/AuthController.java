@@ -1,3 +1,9 @@
+/**
+ * Authentication Controller
+
+ * Handles user authentication, logout, and current user information.
+ * Provides JWT-based authentication for the system.
+ */
 package com.example.studentmanagement.controller;
 
 import com.example.studentmanagement.dto.ApiResponse;
@@ -52,26 +58,20 @@ public class AuthController {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-            System.out.println("=== GET CURRENT USER ENDPOINT ===");
-
             if (isUserAuthenticated(authentication)) {
                 String username = authentication.getName();
-                System.out.println("✅ User authenticated: " + username);
 
                 // Get full user details from database
                 User user = getUserFromDatabase(username);
                 if (user != null) {
-                    System.out.println("✅ Returning user details for: " + user.getUsername() + ", Role: " + user.getRole());
                     return ResponseEntity.ok(ApiResponse.success("Current user retrieved successfully", user));
                 }
             }
 
-            System.out.println("❌ No authenticated user found");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("No user currently authenticated. Please login."));
 
         } catch (Exception e) {
-            System.out.println("❌ Error in getCurrentUser: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Error retrieving current user: " + e.getMessage()));
         }
@@ -82,7 +82,6 @@ public class AuthController {
             return userRepository.findByUsername(username)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
         } catch (Exception e) {
-            System.out.println("Error fetching user from database: " + e.getMessage());
             return null;
         }
     }

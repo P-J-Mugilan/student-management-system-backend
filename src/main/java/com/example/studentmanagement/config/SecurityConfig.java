@@ -1,7 +1,15 @@
+/**
+ * Security Configuration
+ *
+ * Configures Spring Security for JWT-based authentication and authorization.
+ * Sets up CORS, password encoding, and role-based access control.
+ */
 package com.example.studentmanagement.config;
 
 import com.example.studentmanagement.security.CustomUserDetailsService;
 import com.example.studentmanagement.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -12,6 +20,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -19,7 +33,11 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
+    @Value("${cors.allowed.origins:http://localhost:5500,http://127.0.0.1:5500}")
+    private String allowedOrigins;
+
+    public SecurityConfig(CustomUserDetailsService userDetailsService,
+                          JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -43,45 +61,116 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Configure allowed origins from environment variable
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        configuration.setAllowedOrigins(origins);
+
+        // Configure allowed methods
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
+        // Configure allowed headers
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers",
+                "X-CSRF-TOKEN"
+        ));
+
+        // Configure exposed headers
+        configuration.setExposedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Content-Disposition"
+        ));
+
+        // Allow credentials
+        configuration.setAllowCredentials(true);
+
+        // Set max age for preflight requests
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /**
+     * Main security configuration with JWT authentication
+     * Sets up stateless session management and role-based access control
+     */
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                // Disable CSRF for REST APIs
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Enable CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // Stateless session management
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                // Exception handling
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"success\": false, \"message\": \"Unauthorized: " + authException.getMessage() + "\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"success\": false, \"message\": \"Access Denied: " + accessDeniedException.getMessage() + "\"}");
+                        })
+                )
+
+                // Authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // Allow ALL Swagger and OpenAPI endpoints
+                        // Public endpoints
                         .requestMatchers(
+                                "/",
+                                "/health",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api-docs/**",
                                 "/webjars/**",
                                 "/swagger-resources/**",
-                                "/swagger-resources",
-                                "/configuration/ui",
-                                "/configuration/security",
-                                "/v3/api-docs",
-                                "/api-docs",
                                 "/api/auth/login",
-                                "/api/debug/**",
+                                "/api/auth/register",
                                 "/api/students/public/**"
                         ).permitAll()
 
-                        // Admin endpoints
+                        // Admin-only endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/branches/**").hasRole("ADMIN")
 
-                        // Professor and Admin endpoints
+                        // Professor + Admin endpoints
                         .requestMatchers("/api/students/**").hasAnyRole("PROFESSOR", "ADMIN")
 
-                        // Authenticated endpoints
+                        // Authenticated user endpoints
                         .requestMatchers("/api/auth/me").authenticated()
-                        .requestMatchers("/api/auth/logout").authenticated()
 
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }

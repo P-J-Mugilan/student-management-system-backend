@@ -1,3 +1,9 @@
+/**
+ * Token Blacklist Manager
+ *
+ * Manages blacklisted JWT tokens to prevent their reuse after logout.
+ * Provides simple in-memory token invalidation with periodic cleanup.
+ */
 package com.example.studentmanagement.security;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,29 +15,32 @@ import java.util.List;
 @Component
 public class TokenBlacklist {
 
-    // Simple list to store blacklisted tokens
     private final List<String> blacklistedTokens = new ArrayList<>();
 
-    // Add token to blacklist
+    /**
+     * Add token to blacklist to prevent reuse
+     */
     public void blacklistToken(String token) {
         if (!blacklistedTokens.contains(token)) {
             blacklistedTokens.add(token);
-            System.out.println("✅ Token added to blacklist");
         }
     }
 
-    // Check if token is blacklisted
+    /**
+     * Check if token is blacklisted
+     */
     public boolean isBlacklisted(String token) {
         return blacklistedTokens.contains(token);
     }
 
-    // Clean up the list periodically (optional)
-    @Scheduled(fixedRate = 3600000) // Run every hour
+    /**
+     * Clean up blacklist periodically to prevent memory issues
+     * Runs every hour and clears if list exceeds 1000 tokens
+     */
+    @Scheduled(fixedRate = 3600000)
     public void cleanupTokens() {
-        // For simplicity, we'll just clear the list if it gets too big
         if (blacklistedTokens.size() > 1000) {
             blacklistedTokens.clear();
-            System.out.println("🔄 Token blacklist cleared");
         }
     }
 }

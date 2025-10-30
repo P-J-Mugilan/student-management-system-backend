@@ -1,3 +1,9 @@
+/**
+ * Branch Controller
+ *
+ * Handles academic branch management operations.
+ * Admin-only access for create, update, delete operations.
+ */
 package com.example.studentmanagement.controller;
 
 import com.example.studentmanagement.dto.ApiResponse;
@@ -16,10 +22,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Branch Management API - Handle academic branch operations (Admin only)
- * Base URL: /api/branches
- */
 @RestController
 @RequestMapping("/api/branches")
 @Tag(name = "2. Branch Management", description = "Academic branch management endpoints (Admin access only)")
@@ -32,10 +34,6 @@ public class BranchController {
         this.branchService = branchService;
     }
 
-    /**
-     * Create New Branch
-     * Create a new academic branch (Admin only)
-     */
     @PostMapping
     @Operation(summary = "Create Branch", description = "Create a new academic branch - ADMIN ACCESS REQUIRED")
     public ResponseEntity<ApiResponse<Branch>> createBranch(
@@ -44,10 +42,6 @@ public class BranchController {
         return new ResponseEntity<>(ApiResponse.created("Branch created successfully", branch), HttpStatus.CREATED);
     }
 
-    /**
-     * Get All Branches
-     * Retrieve list of all academic branches
-     */
     @GetMapping
     @Operation(summary = "Get All Branches", description = "Retrieve list of all academic branches")
     public ResponseEntity<ApiResponse<List<Branch>>> getAllBranches() {
@@ -55,10 +49,6 @@ public class BranchController {
         return ResponseEntity.ok(ApiResponse.success("Branches retrieved successfully", branches));
     }
 
-    /**
-     * Get All Branches (Paginated)
-     * Retrieve paginated list of academic branches
-     */
     @GetMapping("/paginated")
     @Operation(summary = "Get Branches (Paginated)", description = "Retrieve paginated list of academic branches with page and size parameters")
     public ResponseEntity<ApiResponse<Page<Branch>>> getAllBranchesPaginated(
@@ -69,10 +59,6 @@ public class BranchController {
         return ResponseEntity.ok(ApiResponse.success("Branches retrieved successfully", branches));
     }
 
-    /**
-     * Get Branch by ID
-     * Retrieve specific branch details by branch ID
-     */
     @GetMapping("/{branchId}")
     @Operation(summary = "Get Branch by ID", description = "Retrieve specific branch details by branch ID")
     public ResponseEntity<ApiResponse<Branch>> getBranchById(
@@ -81,10 +67,6 @@ public class BranchController {
         return ResponseEntity.ok(ApiResponse.success("Branch retrieved successfully", branch));
     }
 
-    /**
-     * Update Branch
-     * Update existing branch information (Admin only)
-     */
     @PutMapping("/{branchId}")
     @Operation(summary = "Update Branch", description = "Update existing branch information - ADMIN ACCESS REQUIRED")
     public ResponseEntity<ApiResponse<Branch>> updateBranch(
@@ -94,10 +76,6 @@ public class BranchController {
         return ResponseEntity.ok(ApiResponse.success("Branch updated successfully", branch));
     }
 
-    /**
-     * Delete Branch
-     * Delete academic branch by ID (Admin only)
-     */
     @DeleteMapping("/{branchId}")
     @Operation(summary = "Delete Branch", description = "Delete academic branch by ID - ADMIN ACCESS REQUIRED")
     public ResponseEntity<ApiResponse<Void>> deleteBranch(

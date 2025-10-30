@@ -1,3 +1,9 @@
+/**
+ * Student Service Implementation
+ *
+ * Handles student management with role-based access control.
+ * Admins have full access, professors can only manage students in their branch.
+ */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.StudentRequest;
@@ -40,13 +46,6 @@ public class StudentServiceImpl implements StudentService {
     public Student createStudent(StudentRequest request) {
         User currentUser = userService.getCurrentUser();
 
-        System.out.println("=== CREATE STUDENT ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
-        if (currentUser.getBranch() != null) {
-            System.out.println("Professor Branch ID: " + currentUser.getBranch().getBranchId());
-        }
-        System.out.println("Requested Branch ID: " + request.getBranchId());
-
         // Check if student email already exists
         if (studentRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("Student with email " + request.getEmail() + " already exists");
@@ -60,15 +59,18 @@ public class StudentServiceImpl implements StudentService {
         Branch branch = branchRepository.findById(request.getBranchId())
                 .orElseThrow(() -> new ResourceNotFoundException("Branch", "id", request.getBranchId()));
 
-        // STRICT VALIDATION: Professors can ONLY create students in their own branch
+        /**
+         * Contract: Strict branch validation for professors
+         * - Professors can ONLY create students in their assigned branch
+         * - Prevents professors from adding students to other branches
+         * - Ensures branch-level data isolation
+         */
         if (currentUser.getRole().equals(Role.PROFESSOR)) {
             if (currentUser.getBranch() == null) {
                 throw new ForbiddenException("Professor must be assigned to a branch to create students");
             }
-            // CRITICAL FIX: Check if professor's branch matches the requested branch
             if (!currentUser.getBranch().getBranchId().equals(request.getBranchId())) {
-                throw new ForbiddenException("You can only create students in your own branch. Your branch ID: " +
-                        currentUser.getBranch().getBranchId() + ", Requested branch ID: " + request.getBranchId());
+                throw new ForbiddenException("You can only create students in your own branch");
             }
         }
 
@@ -85,10 +87,9 @@ public class StudentServiceImpl implements StudentService {
         try {
             emailService.sendStudentRegistrationEmail(savedStudent);
         } catch (Exception e) {
-            System.out.println("Failed to send email: " + e.getMessage());
+            // Log email failure but don't break the registration flow
         }
 
-        System.out.println("Student created successfully for branch: " + branch.getBranchId());
         return savedStudent;
     }
 
@@ -96,21 +97,13 @@ public class StudentServiceImpl implements StudentService {
     public List<Student> getAllStudents() {
         User currentUser = userService.getCurrentUser();
 
-        System.out.println("=== GET ALL STUDENTS ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
-
         if (currentUser.getRole().equals(Role.ADMIN)) {
-            List<Student> students = studentRepository.findAll();
-            System.out.println("Admin accessing all students: " + students.size() + " students found");
-            return students;
+            return studentRepository.findAll();
         } else if (currentUser.getRole().equals(Role.PROFESSOR)) {
             if (currentUser.getBranch() == null) {
                 throw new ForbiddenException("Professor must be assigned to a branch to view students");
             }
-            // Professor can only see students from their branch
-            List<Student> students = studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId());
-            System.out.println("Professor accessing students from branch " + currentUser.getBranch().getBranchId() + ": " + students.size() + " students found");
-            return students;
+            return studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId());
         } else {
             throw new ForbiddenException("Access denied");
         }
@@ -138,18 +131,13 @@ public class StudentServiceImpl implements StudentService {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student", "id", studentId));
 
-        System.out.println("=== GET STUDENT BY ID ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
-        System.out.println("Student Branch ID: " + student.getBranch().getBranchId());
-
         // Check access: Professor can only access students from their branch
         if (currentUser.getRole().equals(Role.PROFESSOR)) {
             if (currentUser.getBranch() == null) {
                 throw new ForbiddenException("Professor must be assigned to a branch to access students");
             }
             if (!student.getBranch().getBranchId().equals(currentUser.getBranch().getBranchId())) {
-                throw new ForbiddenException("You can only access students from your own branch. Your branch: " +
-                        currentUser.getBranch().getBranchId() + ", Student's branch: " + student.getBranch().getBranchId());
+                throw new ForbiddenException("You can only access students from your own branch");
             }
         }
 
@@ -161,13 +149,8 @@ public class StudentServiceImpl implements StudentService {
         User currentUser = userService.getCurrentUser();
         Student student = getStudentById(studentId); // This already checks branch access
 
-        System.out.println("=== UPDATE STUDENT ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
-
         // For professors: Remove branchId from request to prevent branch changes
         if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            System.out.println("Professor update - ignoring branchId if provided");
-            // Set branchId to null so it won't be processed
             request.setBranchId(null);
         }
 
@@ -200,13 +183,11 @@ public class StudentServiceImpl implements StudentService {
 
         return studentRepository.save(student);
     }
+
     @Override
     public void deleteStudent(Long studentId) {
         User currentUser = userService.getCurrentUser();
         Student student = getStudentById(studentId);
-
-        System.out.println("=== DELETE STUDENT ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
 
         // Professors can only delete students in their own branch
         if (currentUser.getRole().equals(Role.PROFESSOR)) {
@@ -219,7 +200,6 @@ public class StudentServiceImpl implements StudentService {
         }
 
         studentRepository.delete(student);
-        System.out.println("Student deleted successfully");
     }
 
     @Override
@@ -232,29 +212,27 @@ public class StudentServiceImpl implements StudentService {
     public List<Student> getStudentsByBranch(Long branchId) {
         User currentUser = userService.getCurrentUser();
 
-        System.out.println("=== GET STUDENTS BY BRANCH ===");
-        System.out.println("Current User: " + currentUser.getUsername() + ", Role: " + currentUser.getRole());
-        System.out.println("Requested Branch ID: " + branchId);
-
         // Check if branch exists
         boolean branchExists = branchRepository.existsById(branchId);
         if (!branchExists) {
             throw new ResourceNotFoundException("Branch", "id", branchId);
         }
 
-        // Check professor access rights
+        /**
+         * Contract: Professor branch access validation
+         * - Professors can only access students from their assigned branch
+         * - Prevents professors from viewing students in other branches
+         * - Maintains data isolation between branches
+         */
         if (currentUser.getRole().equals(Role.PROFESSOR)) {
             if (currentUser.getBranch() == null) {
                 throw new ForbiddenException("Professor must be assigned to a branch to view students");
             }
             if (!currentUser.getBranch().getBranchId().equals(branchId)) {
-                throw new ForbiddenException("You can only access students from your own branch. Your branch: " +
-                        currentUser.getBranch().getBranchId() + ", Requested branch: " + branchId);
+                throw new ForbiddenException("You can only access students from your own branch");
             }
         }
 
-        List<Student> students = studentRepository.findByBranchBranchId(branchId);
-        System.out.println("✅ Found " + students.size() + " students for branch " + branchId);
-        return students;
+        return studentRepository.findByBranchBranchId(branchId);
     }
 }

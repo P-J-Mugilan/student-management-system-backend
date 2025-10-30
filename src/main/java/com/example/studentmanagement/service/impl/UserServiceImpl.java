@@ -1,6 +1,13 @@
+/**
+ * User Service Implementation
+ *
+ * Handles user management including registration, updates, and role-based access.
+ * Manages admin and professor accounts with proper branch assignments.
+ */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.RegisterRequest;
+import com.example.studentmanagement.dto.UpdateUserRequest;
 import com.example.studentmanagement.entity.Branch;
 import com.example.studentmanagement.entity.Role;
 import com.example.studentmanagement.entity.User;
@@ -26,7 +33,6 @@ public class UserServiceImpl implements UserService {
     private final BranchRepository branchRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // Constructor-based dependency injection
     @Autowired
     public UserServiceImpl(UserRepository userRepository, BranchRepository branchRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
@@ -47,7 +53,12 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Only ADMIN and PROFESSOR roles can be created as users");
         }
 
-        // Validate branch requirements
+        /**
+         * Contract: Role-based branch assignment validation
+         * - Admin users cannot be assigned to any branch
+         * - Professor users must be assigned to exactly one branch
+         * - Prevents invalid user-branch relationships
+         */
         if (request.getRole() == Role.ADMIN && request.getBranchId() != null) {
             throw new BadRequestException("Admin cannot be assigned to a branch");
         }
@@ -94,6 +105,37 @@ public class UserServiceImpl implements UserService {
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+    }
+
+    @Override
+    public User updateUser(Long userId, UpdateUserRequest request) {
+        User existingUser = getUserById(userId);
+
+        if (request.getUsername() != null) {
+            existingUser.setUsername(request.getUsername());
+        }
+
+        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+            existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        existingUser.setRole(request.getRole());
+
+        /*
+         * Contract: Dynamic branch management during user updates
+         * - Professors must have a branch assignment
+         * - Admins must have no branch assignment
+         * - Automatically handles branch cleanup on role changes
+         */
+        if (request.getRole() == Role.PROFESSOR && request.getBranchId() != null) {
+            Branch branch = branchRepository.findById(request.getBranchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Branch not found with id: " + request.getBranchId()));
+            existingUser.setBranch(branch);
+        } else {
+            existingUser.setBranch(null);
+        }
+
+        return userRepository.save(existingUser);
     }
 
     @Override

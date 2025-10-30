@@ -1,3 +1,9 @@
+/**
+ * JWT Utility Class
+ *
+ * Handles JWT token generation, validation, and parsing.
+ * Manages token lifecycle including expiration and signature verification.
+ */
 package com.example.studentmanagement.security;
 
 import io.jsonwebtoken.*;

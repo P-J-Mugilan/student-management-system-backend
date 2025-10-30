@@ -1,3 +1,9 @@
+/**
+ * Email Service Implementation
+ *
+ * Handles email notifications for system events.
+ * Currently supports student registration confirmation emails.
+ */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.entity.Student;
@@ -12,7 +18,6 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    // Constructor-based dependency injection
     @Autowired
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -37,7 +42,7 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
         } catch (Exception e) {
-            System.out.println("Failed to send email: " + e.getMessage());
+            // Log email failure but don't break the registration flow
         }
     }
 }

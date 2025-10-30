@@ -1,3 +1,9 @@
+/**
+ * Student Management System Application
+ *
+ * Main Spring Boot application class.
+ * Enables scheduling for background tasks like token cleanup.
+ */
 package com.example.studentmanagement;
 
 import org.springframework.boot.SpringApplication;
@@ -11,5 +17,4 @@ public class StudentManagementSystemApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(StudentManagementSystemApplication.class, args);
 	}
-
 }

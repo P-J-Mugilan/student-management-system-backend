@@ -1,3 +1,9 @@
+/**
+ * JWT Authentication Filter
+ *
+ * Intercepts HTTP requests to validate JWT tokens.
+ * Handles token blacklisting and sets up Spring Security context.
+ */
 package com.example.studentmanagement.security;
 
 import jakarta.servlet.FilterChain;
@@ -32,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String requestURI = request.getRequestURI();
 
-        // Skip JWT filter for Swagger, login, and public endpoints
+        // Skip JWT filter for public endpoints
         if (requestURI.startsWith("/swagger-ui") ||
                 requestURI.startsWith("/v3/api-docs") ||
                 requestURI.startsWith("/api-docs") ||
@@ -55,7 +61,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Check if token is blacklisted
             if (tokenBlacklist.isBlacklisted(jwt)) {
-                System.out.println("Blocked blacklisted token for: " + requestURI);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"success\": false, \"message\": \"Token has been invalidated. Please login again.\"}");
@@ -65,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 username = jwtUtil.extractUsername(jwt);
             } catch (Exception e) {
-                System.out.println("Invalid JWT token: " + e.getMessage());
+                // Invalid token - continue without authentication
             }
         }
 
@@ -78,10 +83,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    System.out.println("Authenticated user: " + username);
                 }
             } catch (Exception e) {
-                System.out.println("Authentication failed for user: " + username);
+                // Authentication failed - continue without setting context
             }
         }
         chain.doFilter(request, response);

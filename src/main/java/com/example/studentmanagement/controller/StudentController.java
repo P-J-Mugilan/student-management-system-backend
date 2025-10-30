@@ -1,3 +1,9 @@
+/**
+ * Student Controller
+ *
+ * Handles student management operations with role-based access.
+ * Public endpoints for student lookup, protected endpoints for management.
+ */
 package com.example.studentmanagement.controller;
 
 import com.example.studentmanagement.dto.ApiResponse;
@@ -16,10 +22,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Student Management API - Handle student operations (Admin & Professor access)
- * Base URL: /api/students
- */
 @RestController
 @RequestMapping("/api/students")
 @Tag(name = "4. Student Management", description = "Student management endpoints (Admin & Professor access)")
@@ -34,8 +36,7 @@ public class StudentController {
     // ==================== PUBLIC ENDPOINTS ====================
 
     /**
-     * Get Student by Email (Public)
-     * Retrieve student information by email address - No authentication required
+     * Public student lookup by email - no authentication required
      */
     @GetMapping("/public/email/{email}")
     @Operation(summary = "Get Student by Email (Public)", description = "Retrieve student information by email address - NO AUTHENTICATION REQUIRED")
@@ -48,8 +49,7 @@ public class StudentController {
     // ==================== PROTECTED ENDPOINTS ====================
 
     /**
-     * Create New Student
-     * Register new student in the system (Admin & Professor)
+     * Create new student - admin or professor access
      */
     @PostMapping
     @Operation(summary = "Create Student", description = "Register new student in the system - ADMIN OR PROFESSOR ACCESS REQUIRED")
@@ -60,8 +60,7 @@ public class StudentController {
     }
 
     /**
-     * Get All Students
-     * Retrieve list of all students (Admin: all students, Professor: their branch only)
+     * Get all students - admin sees all, professor sees only their branch
      */
     @GetMapping
     @Operation(summary = "Get All Students", description = "Retrieve list of students (Admin: all, Professor: their branch only)")
@@ -71,22 +70,20 @@ public class StudentController {
     }
 
     /**
-     * Get All Students (Paginated)
-     * Retrieve paginated list of students (Admin: all students, Professor: their branch only)
+     * Get paginated students - admin sees all, professor sees only their branch
      */
     @GetMapping("/paginated")
     @Operation(summary = "Get Students (Paginated)", description = "Retrieve paginated list of students (Admin: all, Professor: their branch only)")
     public ResponseEntity<ApiResponse<Page<Student>>> getAllStudentsPaginated(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "5") int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Student> students = studentService.getAllStudents(pageable);
         return ResponseEntity.ok(ApiResponse.success("Students retrieved successfully", students));
     }
 
     /**
-     * Get Student by ID
-     * Retrieve specific student details by student ID
+     * Get student by ID - admin sees all, professor sees only their branch students
      */
     @GetMapping("/{studentId}")
     @Operation(summary = "Get Student by ID", description = "Retrieve specific student details by student ID")
@@ -97,8 +94,7 @@ public class StudentController {
     }
 
     /**
-     * Get Students by Branch
-     * Retrieve all students belonging to a specific branch
+     * Get students by branch - admin sees any branch, professor sees only their branch
      */
     @GetMapping("/branch/{branchId}")
     @Operation(summary = "Get Students by Branch", description = "Retrieve all students belonging to a specific branch")
@@ -110,8 +106,7 @@ public class StudentController {
     }
 
     /**
-     * Update Student
-     * Update existing student information
+     * Update student - admin can change branch, professor can only update their branch students
      */
     @PutMapping("/{studentId}")
     @Operation(summary = "Update Student", description = "Update existing student information")
@@ -123,8 +118,7 @@ public class StudentController {
     }
 
     /**
-     * Delete Student
-     * Remove student from the system
+     * Delete student - admin can delete any, professor can only delete their branch students
      */
     @DeleteMapping("/{studentId}")
     @Operation(summary = "Delete Student", description = "Remove student from the system")

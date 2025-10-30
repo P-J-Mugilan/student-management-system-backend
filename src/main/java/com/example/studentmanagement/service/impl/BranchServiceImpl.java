@@ -1,3 +1,9 @@
+/**
+ * Branch Service Implementation
+ *
+ * Handles branch management with role-based access control.
+ * Admins have full access, professors can only view their assigned branch.
+ */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.BranchRequest;
@@ -23,7 +29,6 @@ public class BranchServiceImpl implements BranchService {
     private final BranchRepository branchRepository;
     private final UserService userService;
 
-    // Constructor-based dependency injection
     @Autowired
     public BranchServiceImpl(BranchRepository branchRepository, UserService userService) {
         this.branchRepository = branchRepository;
@@ -127,6 +132,12 @@ public class BranchServiceImpl implements BranchService {
 
         Branch branch = getBranchById(branchId);
 
+        /**
+         * Contract: Prevents branch deletion if it has associated students or professors
+         * - Ensures data integrity by maintaining relationships
+         * - Requires manual reassignment or deletion of dependent entities first
+         * - Prevents orphaned student/professor records
+         */
         if (!branch.getStudents().isEmpty() || !branch.getProfessors().isEmpty()) {
             throw new BadRequestException("Cannot delete branch with associated students or professors");
         }
