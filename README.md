@@ -300,7 +300,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 <div align="center">
 
-**If you find this project helpful, please [⭐ give it a star on GitHub](https://github.com/P-J-Mugilan/student-management-system)!**
+**If you find this project helpful, please [⭐ give it a star on GitHub](https://github.com/P-J-Mugilan/student-management-system-backend)!**
 
 **Happy Coding!**
 
