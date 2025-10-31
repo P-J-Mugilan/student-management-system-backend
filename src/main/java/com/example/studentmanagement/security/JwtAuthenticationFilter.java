@@ -86,6 +86,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             } catch (Exception e) {
                 // Authentication failed - continue without setting context
+                logger.warn("JWT token validation failed: {}", e);
             }
         }
         chain.doFilter(request, response);

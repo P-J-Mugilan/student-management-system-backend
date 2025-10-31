@@ -1,18 +1,11 @@
-/**
- * Authentication Controller
-
- * Handles user authentication, logout, and current user information.
- * Provides JWT-based authentication for the system.
- */
 package com.example.studentmanagement.controller;
 
 import com.example.studentmanagement.dto.ApiResponse;
 import com.example.studentmanagement.dto.JwtResponse;
 import com.example.studentmanagement.dto.LoginRequest;
-import com.example.studentmanagement.entity.User;
-import com.example.studentmanagement.exception.ResourceNotFoundException;
-import com.example.studentmanagement.repository.UserRepository;
+import com.example.studentmanagement.dto.UserResponse;
 import com.example.studentmanagement.service.AuthService;
+import com.example.studentmanagement.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,11 +23,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public AuthController(AuthService authService, UserRepository userRepository) {
+    public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -54,50 +47,24 @@ public class AuthController {
 
     @GetMapping("/me")
     @Operation(summary = "Get Current User", description = "Get details of currently authenticated user")
-    public ResponseEntity<ApiResponse<Object>> getCurrentUser() {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-            if (isUserAuthenticated(authentication)) {
-                String username = authentication.getName();
-
-                // Get full user details from database
-                User user = getUserFromDatabase(username);
-                if (user != null) {
-                    return ResponseEntity.ok(ApiResponse.success("Current user retrieved successfully", user));
-                }
-            }
-
+        if (!isUserAuthenticated(authentication)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("No user currently authenticated. Please login."));
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Error retrieving current user: " + e.getMessage()));
         }
+
+        UserResponse userResponse = userService.getCurrentUser(); // reuse service layer
+        return ResponseEntity.ok(ApiResponse.success("Current user retrieved successfully", userResponse));
     }
 
-    private User getUserFromDatabase(String username) {
-        try {
-            return userRepository.findByUsername(username)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // ==================== Utility Methods ====================
 
     private boolean isUserAuthenticated(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-
-        // Check if it's an anonymous user
-        if (authentication.getPrincipal() instanceof String) {
-            String principal = (String) authentication.getPrincipal();
-            return !"anonymousUser".equals(principal);
-        }
-
-        return true;
+        return authentication != null && authentication.isAuthenticated() &&
+                !(authentication.getPrincipal() instanceof String &&
+                        "anonymousUser".equals(authentication.getPrincipal()));
     }
 
     private String extractTokenFromRequest(HttpServletRequest request) {

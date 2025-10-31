@@ -1,12 +1,7 @@
-/**
- * Student Service Implementation
- *
- * Handles student management with role-based access control.
- * Admins have full access, professors can only manage students in their branch.
- */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.StudentRequest;
+import com.example.studentmanagement.dto.StudentResponse;
 import com.example.studentmanagement.entity.Branch;
 import com.example.studentmanagement.entity.Role;
 import com.example.studentmanagement.entity.Student;
@@ -24,7 +19,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentServiceImpl implements StudentService {
@@ -35,23 +32,42 @@ public class StudentServiceImpl implements StudentService {
     private final EmailService emailService;
 
     @Autowired
-    public StudentServiceImpl(StudentRepository studentRepository, BranchRepository branchRepository, UserService userService, EmailService emailService) {
+    public StudentServiceImpl(StudentRepository studentRepository,
+                              BranchRepository branchRepository,
+                              UserService userService,
+                              EmailService emailService) {
         this.studentRepository = studentRepository;
         this.branchRepository = branchRepository;
         this.userService = userService;
         this.emailService = emailService;
     }
 
-    @Override
-    public Student createStudent(StudentRequest request) {
-        User currentUser = userService.getCurrentUser();
+    /** Maps Student entity → StudentResponse DTO */
+    private StudentResponse mapToResponse(Student student) {
+        return new StudentResponse(
+                student.getStudentId(),
+                student.getName(),
+                student.getEmail(),
+                student.getAge(),
+                student.getGender(),
+                student.getBranch() != null ? student.getBranch().getBranchId() : null,
+                student.getBranch() != null ? student.getBranch().getName() : null
+        );
+    }
 
-        // Check if student email already exists
+    /** Gets the currently authenticated User entity */
+    private User getCurrentUser() {
+        return userService.getCurrentUserEntity();
+    }
+
+    @Override
+    public StudentResponse createStudent(StudentRequest request) {
+        User currentUser = getCurrentUser();
+
         if (studentRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("Student with email " + request.getEmail() + " already exists");
         }
 
-        // Validate required fields
         if (request.getBranchId() == null) {
             throw new BadRequestException("Branch ID is required for student");
         }
@@ -59,19 +75,9 @@ public class StudentServiceImpl implements StudentService {
         Branch branch = branchRepository.findById(request.getBranchId())
                 .orElseThrow(() -> new ResourceNotFoundException("Branch", "id", request.getBranchId()));
 
-        /**
-         * Contract: Strict branch validation for professors
-         * - Professors can ONLY create students in their assigned branch
-         * - Prevents professors from adding students to other branches
-         * - Ensures branch-level data isolation
-         */
-        if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to create students");
-            }
-            if (!currentUser.getBranch().getBranchId().equals(request.getBranchId())) {
-                throw new ForbiddenException("You can only create students in your own branch");
-            }
+        if (currentUser.getRole() == Role.PROFESSOR &&
+                !currentUser.getBranch().getBranchId().equals(branch.getBranchId())) {
+            throw new ForbiddenException("You can only create students in your own branch");
         }
 
         Student student = new Student();
@@ -81,83 +87,70 @@ public class StudentServiceImpl implements StudentService {
         student.setGender(request.getGender());
         student.setBranch(branch);
 
-        Student savedStudent = studentRepository.save(student);
+        Student saved = studentRepository.save(student);
 
-        // Send email notification to student
         try {
-            emailService.sendStudentRegistrationEmail(savedStudent);
-        } catch (Exception e) {
-            // Log email failure but don't break the registration flow
-        }
+            emailService.sendStudentRegistrationEmail(saved);
+        } catch (Exception ignored) {}
 
-        return savedStudent;
+        return mapToResponse(saved);
     }
 
     @Override
-    public List<Student> getAllStudents() {
-        User currentUser = userService.getCurrentUser();
+    public List<StudentResponse> getAllStudents() {
+        User currentUser = getCurrentUser();
+        List<Student> students;
 
-        if (currentUser.getRole().equals(Role.ADMIN)) {
-            return studentRepository.findAll();
-        } else if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to view students");
-            }
-            return studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId());
+        if (currentUser.getRole() == Role.ADMIN) {
+            students = studentRepository.findAll();
+        } else if (currentUser.getRole() == Role.PROFESSOR) {
+            students = studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId());
+        } else {
+            throw new ForbiddenException("Access denied");
+        }
+
+        return students.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<StudentResponse> getAllStudents(Pageable pageable) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() == Role.ADMIN) {
+            return studentRepository.findAll(pageable).map(this::mapToResponse);
+        } else if (currentUser.getRole() == Role.PROFESSOR) {
+            return studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId(), pageable)
+                    .map(this::mapToResponse);
         } else {
             throw new ForbiddenException("Access denied");
         }
     }
 
     @Override
-    public Page<Student> getAllStudents(Pageable pageable) {
-        User currentUser = userService.getCurrentUser();
-
-        if (currentUser.getRole().equals(Role.ADMIN)) {
-            return studentRepository.findAll(pageable);
-        } else if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to view students");
-            }
-            return studentRepository.findByBranchBranchId(currentUser.getBranch().getBranchId(), pageable);
-        } else {
-            throw new ForbiddenException("Access denied");
-        }
-    }
-
-    @Override
-    public Student getStudentById(Long studentId) {
-        User currentUser = userService.getCurrentUser();
+    public StudentResponse getStudentById(Long studentId) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student", "id", studentId));
 
-        // Check access: Professor can only access students from their branch
-        if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to access students");
-            }
-            if (!student.getBranch().getBranchId().equals(currentUser.getBranch().getBranchId())) {
-                throw new ForbiddenException("You can only access students from your own branch");
-            }
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.PROFESSOR &&
+                !currentUser.getBranch().getBranchId().equals(student.getBranch().getBranchId())) {
+            throw new ForbiddenException("You can only access students from your own branch");
         }
 
-        return student;
+        return mapToResponse(student);
     }
 
     @Override
-    public Student updateStudent(Long studentId, StudentRequest request) {
-        User currentUser = userService.getCurrentUser();
-        Student student = getStudentById(studentId); // This already checks branch access
+    public StudentResponse updateStudent(Long studentId, StudentRequest request) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student", "id", studentId));
 
-        // For professors: Remove branchId from request to prevent branch changes
-        if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            request.setBranchId(null);
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.PROFESSOR) {
+            request.setBranchId(null); // Professors cannot change branch
         }
 
-        // Update student fields
-        if (request.getName() != null) {
-            student.setName(request.getName());
-        }
+        if (request.getName() != null) student.setName(request.getName());
 
         if (request.getEmail() != null && !request.getEmail().equals(student.getEmail())) {
             if (studentRepository.existsByEmail(request.getEmail())) {
@@ -166,73 +159,54 @@ public class StudentServiceImpl implements StudentService {
             student.setEmail(request.getEmail());
         }
 
-        if (request.getAge() != null && request.getAge() > 0) {
-            student.setAge(request.getAge());
-        }
+        if (request.getAge() != null) student.setAge(request.getAge());
+        if (request.getGender() != null) student.setGender(request.getGender());
 
-        if (request.getGender() != null) {
-            student.setGender(request.getGender());
-        }
-
-        // Only admin can update branch
-        if (request.getBranchId() != null && currentUser.getRole().equals(Role.ADMIN)) {
+        if (request.getBranchId() != null && currentUser.getRole() == Role.ADMIN) {
             Branch branch = branchRepository.findById(request.getBranchId())
                     .orElseThrow(() -> new ResourceNotFoundException("Branch", "id", request.getBranchId()));
             student.setBranch(branch);
         }
 
-        return studentRepository.save(student);
+        return mapToResponse(studentRepository.save(student));
     }
 
     @Override
     public void deleteStudent(Long studentId) {
-        User currentUser = userService.getCurrentUser();
-        Student student = getStudentById(studentId);
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student", "id", studentId));
 
-        // Professors can only delete students in their own branch
-        if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to delete students");
-            }
-            if (!student.getBranch().getBranchId().equals(currentUser.getBranch().getBranchId())) {
-                throw new ForbiddenException("You can only delete students in your own branch");
-            }
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.PROFESSOR &&
+                !currentUser.getBranch().getBranchId().equals(student.getBranch().getBranchId())) {
+            throw new ForbiddenException("You can only delete students in your own branch");
         }
 
         studentRepository.delete(student);
     }
 
     @Override
-    public Student getStudentByEmailPublic(String email) {
-        return studentRepository.findByEmail(email)
+    public StudentResponse getStudentByEmailPublic(String email) {
+        Student student = studentRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Student", "email", email));
+        return mapToResponse(student);
     }
 
     @Override
-    public List<Student> getStudentsByBranch(Long branchId) {
-        User currentUser = userService.getCurrentUser();
-
-        // Check if branch exists
-        boolean branchExists = branchRepository.existsById(branchId);
-        if (!branchExists) {
+    public List<StudentResponse> getStudentsByBranch(Long branchId) {
+        if (!branchRepository.existsById(branchId)) {
             throw new ResourceNotFoundException("Branch", "id", branchId);
         }
 
-        /**
-         * Contract: Professor branch access validation
-         * - Professors can only access students from their assigned branch
-         * - Prevents professors from viewing students in other branches
-         * - Maintains data isolation between branches
-         */
-        if (currentUser.getRole().equals(Role.PROFESSOR)) {
-            if (currentUser.getBranch() == null) {
-                throw new ForbiddenException("Professor must be assigned to a branch to view students");
-            }
-            if (!currentUser.getBranch().getBranchId().equals(branchId)) {
-                throw new ForbiddenException("You can only access students from your own branch");
-            }
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == Role.PROFESSOR &&
+                !currentUser.getBranch().getBranchId().equals(branchId)) {
+            throw new ForbiddenException("You can only access students from your own branch");
         }
 
-        return studentRepository.findByBranchBranchId(branchId);
+        return studentRepository.findByBranchBranchId(branchId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 }

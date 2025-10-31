@@ -9,13 +9,14 @@ package com.example.studentmanagement.security;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Component
 public class TokenBlacklist {
 
-    private final List<String> blacklistedTokens = new ArrayList<>();
+    private final Set<String> blacklistedTokens = new HashSet<>();
 
     /**
      * Add token to blacklist to prevent reuse

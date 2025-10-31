@@ -1,14 +1,11 @@
-/**
- * Email Service Implementation
- *
- * Handles email notifications for system events.
- * Currently supports student registration confirmation emails.
- */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.entity.Student;
 import com.example.studentmanagement.service.EmailService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -16,9 +13,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailServiceImpl implements EmailService {
 
+    private static final Logger logger = LoggerFactory.getLogger(EmailServiceImpl.class);
+
     private final JavaMailSender mailSender;
 
-    @Autowired
+    @Value("${app.url}")
+    private String appUrl; // Use application.properties or application.yml
+
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -28,21 +29,38 @@ public class EmailServiceImpl implements EmailService {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(student.getEmail());
+            message.setFrom("noreply@studentsystem.com");
             message.setSubject("Welcome to Student Management System");
-            message.setText("Dear " + student.getName() + ",\n\n" +
-                    "You have been successfully registered in the Student Management System.\n" +
-                    "Your details:\n" +
-                    "Name: " + student.getName() + "\n" +
-                    "Email: " + student.getEmail() + "\n" +
-                    "Age: " + student.getAge() + "\n" +
-                    "Gender: " + student.getGender() + "\n" +
-                    "Branch: " + student.getBranch().getName() + "\n\n" +
-                    "You can view your details anytime at: http://localhost:8080/api/v1/students/me?email=" + student.getEmail() + "\n\n" +
-                    "Thank you for joining us!");
+            message.setText(buildEmailContent(student));
 
             mailSender.send(message);
-        } catch (Exception e) {
-            // Log email failure but don't break the registration flow
+            logger.info("Registration email sent to {}", student.getEmail());
+        } catch (MailException e) {
+            logger.error("Failed to send registration email to {}: {}", student.getEmail(), e.getMessage());
+            // Do not throw exception to avoid breaking registration flow
         }
+    }
+
+    private String buildEmailContent(Student student) {
+        return String.format(
+                "Dear %s,\n\n" +
+                        "You have been successfully registered in the Student Management System.\n" +
+                        "Your details:\n" +
+                        "Name: %s\n" +
+                        "Email: %s\n" +
+                        "Age: %d\n" +
+                        "Gender: %s\n" +
+                        "Branch: %s\n\n" +
+                        "You can view your details anytime at: %s/api/v1/students/me?email=%s\n\n" +
+                        "Thank you for joining us!",
+                student.getName(),
+                student.getName(),
+                student.getEmail(),
+                student.getAge(),
+                student.getGender(),
+                student.getBranch() != null ? student.getBranch().getName() : "N/A",
+                appUrl,
+                student.getEmail()
+        );
     }
 }

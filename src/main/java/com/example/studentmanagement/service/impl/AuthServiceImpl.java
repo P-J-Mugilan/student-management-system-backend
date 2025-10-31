@@ -1,19 +1,16 @@
-/**
- * Authentication Service Implementation
-
- * Handles user authentication using Spring Security and JWT tokens.
- * Manages login/logout operations with token blacklisting.
- */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.JwtResponse;
 import com.example.studentmanagement.dto.LoginRequest;
+import com.example.studentmanagement.entity.Role;
 import com.example.studentmanagement.entity.User;
 import com.example.studentmanagement.exception.UnauthorizedException;
 import com.example.studentmanagement.repository.UserRepository;
 import com.example.studentmanagement.security.JwtUtil;
 import com.example.studentmanagement.security.TokenBlacklist;
 import com.example.studentmanagement.service.AuthService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,6 +20,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
@@ -40,23 +39,29 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public JwtResponse login(LoginRequest request) {
         try {
-            // Authenticate user credentials
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Get user details from database
             User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> new UnauthorizedException("User not found"));
+                    .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
 
-            // Generate JWT token
-            String jwt = jwtUtil.generateToken((UserDetails) authentication.getPrincipal());
+            // Ensure principal is UserDetails
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
+            String jwt = jwtUtil.generateToken(userDetails);
+
+            logger.info("User {} logged in successfully", user.getUsername());
+
+            if((Role.PROFESSOR).equals(user.getRole())) {
+                return new JwtResponse(jwt, user.getUsername(), user.getRole().name(),user.getBranch().getBranchId(),user.getBranch().getName());
+            }
             return new JwtResponse(jwt, user.getUsername(), user.getRole().name());
 
         } catch (Exception e) {
+            logger.warn("Login failed for username {}: {}", request.getUsername(), e.getMessage());
             throw new UnauthorizedException("Invalid username or password");
         }
     }
@@ -64,16 +69,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String token) {
         try {
-            // Blacklist token to prevent reuse
             if (token != null) {
                 tokenBlacklist.blacklistToken(token);
+                logger.info("Token blacklisted successfully");
             }
-
-            // Clear security context
             SecurityContextHolder.clearContext();
-
         } catch (Exception e) {
-            throw new RuntimeException("Logout failed: " + e.getMessage());
+            logger.error("Logout failed: {}", e.getMessage());
+            throw new RuntimeException("Logout failed");
         }
     }
 }

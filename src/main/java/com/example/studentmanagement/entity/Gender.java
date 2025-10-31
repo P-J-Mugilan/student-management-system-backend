@@ -1,40 +1,35 @@
 /**
  * Gender Enumeration
  *
- * <p>Defines the standardized gender options for students within the student management system.
- * This enumeration ensures consistent gender data representation across the application
- * and provides a constrained set of values for data integrity.</p>
+ * <p>Defines standardized gender options for students within the Student Management System.
+ * This enumeration ensures consistent gender representation and data integrity across the application.</p>
  *
  * @version 1.0
  * @since 2025
- *
- * @author Student Management System Team
  */
 package com.example.studentmanagement.entity;
 
 /**
- * Enumeration representing gender options for student records.
- * Provides a simple, maintainable set of gender values that can be used
- * throughout the application for student demographic information.
+ * Enumeration representing gender values for student records.
+ * Provides a constrained, maintainable set of gender options.
  */
 public enum Gender {
 
     /**
      * Male gender identifier.
-     * Used for students who identify as male.
+     * For students who identify as male.
      */
     MALE,
 
     /**
      * Female gender identifier.
-     * Used for students who identify as female.
+     * For students who identify as female.
      */
     FEMALE,
 
     /**
      * Inclusive gender identifier for identities beyond male/female.
-     * Accommodates non-binary, genderqueer, and other gender expressions
-     * to ensure comprehensive student representation.
+     * Accommodates non-binary, genderqueer, and other gender expressions.
      */
     OTHER
 }

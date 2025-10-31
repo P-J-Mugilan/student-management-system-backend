@@ -8,6 +8,7 @@ package com.example.studentmanagement.service;
 
 import com.example.studentmanagement.dto.JwtResponse;
 import com.example.studentmanagement.dto.LoginRequest;
+import com.example.studentmanagement.exception.UnauthorizedException;
 
 public interface AuthService {
 
@@ -23,7 +24,7 @@ public interface AuthService {
      * @param request Login credentials (username and password)
      * @return JwtResponse containing token, user info, and role
      */
-    JwtResponse login(LoginRequest request);
+    JwtResponse login(LoginRequest request) throws UnauthorizedException;
 
     /**
      * Invalidates user session by blacklisting the JWT token.
@@ -35,5 +36,7 @@ public interface AuthService {
      *
      * @param token JWT token to invalidate
      */
+
+
     void logout(String token);
 }

@@ -15,6 +15,7 @@ package com.example.studentmanagement.dto;
 
 import com.example.studentmanagement.entity.Role;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -55,6 +56,12 @@ public class UpdateUserRequest {
      */
     private Long branchId;
 
+    @AssertTrue(message = "Branch is required for PROFESSOR role")
+    public boolean isBranchAssignmentValid() {
+        return (role != Role.PROFESSOR) || branchId != null;
+    }
+
+
     // ==================== GETTER AND SETTER METHODS ====================
 
     /**
@@ -73,7 +80,7 @@ public class UpdateUserRequest {
      * @param username The username to set, or null to preserve existing
      */
     public void setUsername(String username) {
-        this.username = username;
+        this.username = username != null ? username.trim() : null;
     }
 
     /**
@@ -93,7 +100,7 @@ public class UpdateUserRequest {
      * @param password The password to set, or null to preserve existing
      */
     public void setPassword(String password) {
-        this.password = password;
+        this.password = password != null ? password.trim() : null;
     }
 
     /**

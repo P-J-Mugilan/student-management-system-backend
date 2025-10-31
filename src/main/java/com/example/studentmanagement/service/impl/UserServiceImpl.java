@@ -1,13 +1,8 @@
-/**
- * User Service Implementation
- *
- * Handles user management including registration, updates, and role-based access.
- * Manages admin and professor accounts with proper branch assignments.
- */
 package com.example.studentmanagement.service.impl;
 
 import com.example.studentmanagement.dto.RegisterRequest;
 import com.example.studentmanagement.dto.UpdateUserRequest;
+import com.example.studentmanagement.dto.UserResponse;
 import com.example.studentmanagement.entity.Branch;
 import com.example.studentmanagement.entity.Role;
 import com.example.studentmanagement.entity.User;
@@ -19,52 +14,77 @@ import com.example.studentmanagement.repository.UserRepository;
 import com.example.studentmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
+
+    private static final String DEFAULT_ADMIN = "admin";
 
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserServiceImpl(UserRepository userRepository, BranchRepository branchRepository, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository,
+                           BranchRepository branchRepository,
+                           PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
+    /** Maps User entity → UserResponse DTO */
+    private UserResponse mapToResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setRole(user.getRole());
+        if (user.getRole() == Role.PROFESSOR && user.getBranch() != null) {
+            response.setBranchId(user.getBranch().getBranchId());
+            response.setBranchName(user.getBranch().getName());
+        }
+        return response;
+    }
+
+    /** Get the current authenticated User entity */
+    public User getCurrentUserEntity() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+    }
+
     @Override
-    public User registerUser(RegisterRequest request) {
-        // Check if username already exists
+    public UserResponse registerUser(RegisterRequest request) {
+        User currentUser = getCurrentUserEntity();
+        if (!currentUser.getRole().equals(Role.ADMIN)) {
+            throw new ForbiddenException("Only admin can register users");
+        }
+
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new BadRequestException("Username already exists");
         }
 
-        // Validate role - ONLY ADMIN and PROFESSOR allowed
         if (request.getRole() == null ||
                 (request.getRole() != Role.ADMIN && request.getRole() != Role.PROFESSOR)) {
-            throw new BadRequestException("Only ADMIN and PROFESSOR roles can be created as users");
+            throw new BadRequestException("Only ADMIN and PROFESSOR roles are allowed");
         }
 
-        /**
-         * Contract: Role-based branch assignment validation
-         * - Admin users cannot be assigned to any branch
-         * - Professor users must be assigned to exactly one branch
-         * - Prevents invalid user-branch relationships
-         */
         if (request.getRole() == Role.ADMIN && request.getBranchId() != null) {
             throw new BadRequestException("Admin cannot be assigned to a branch");
         }
 
         if (request.getRole() == Role.PROFESSOR && request.getBranchId() == null) {
-            throw new BadRequestException("Branch ID is required for professor");
+            throw new BadRequestException("Professor must have a branch assigned");
         }
 
         User user = new User();
@@ -72,84 +92,81 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
 
-        // Set branch for PROFESSOR only
-        if (request.getRole() == Role.PROFESSOR && request.getBranchId() != null) {
+        if (request.getRole() == Role.PROFESSOR) {
             Branch branch = branchRepository.findById(request.getBranchId())
                     .orElseThrow(() -> new ResourceNotFoundException("Branch", "id", request.getBranchId()));
             user.setBranch(branch);
         }
 
-        return userRepository.save(user);
+        return mapToResponse(userRepository.save(user));
     }
 
     @Override
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .filter(user -> !DEFAULT_ADMIN.equals("admin"))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Page<User> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable);
+    public Page<UserResponse> getAllUsers(Pageable pageable) {
+        Page<User> usersPage = userRepository.findAll(pageable);
+
+        // Filter out default admin and map to UserResponse
+        List<UserResponse> filtered = usersPage.getContent().stream()
+                .filter(user -> !DEFAULT_ADMIN.equalsIgnoreCase(user.getUsername()))
+                .map(this::mapToResponse)
+                .toList();
+
+        // Return a new PageImpl with filtered content
+        return new PageImpl<>(filtered, pageable, usersPage.getTotalElements() - (usersPage.getContent().size() - filtered.size()));
     }
 
     @Override
-    public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+    public UserResponse getCurrentUser() {
+        return mapToResponse(getCurrentUserEntity());
     }
 
     @Override
-    public User getUserById(Long userId) {
-        return userRepository.findById(userId)
+    public UserResponse getUserById(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        return mapToResponse(user);
     }
 
     @Override
-    public User updateUser(Long userId, UpdateUserRequest request) {
-        User existingUser = getUserById(userId);
+    public UserResponse updateUser(Long userId, UpdateUserRequest request) {
+        User existingUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        if (request.getUsername() != null) {
-            existingUser.setUsername(request.getUsername());
-        }
-
-        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+        if (request.getUsername() != null) existingUser.setUsername(request.getUsername());
+        if (request.getPassword() != null && !request.getPassword().trim().isEmpty())
             existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
+        if (request.getRole() != null) existingUser.setRole(request.getRole());
 
-        existingUser.setRole(request.getRole());
-
-        /*
-         * Contract: Dynamic branch management during user updates
-         * - Professors must have a branch assignment
-         * - Admins must have no branch assignment
-         * - Automatically handles branch cleanup on role changes
-         */
         if (request.getRole() == Role.PROFESSOR && request.getBranchId() != null) {
             Branch branch = branchRepository.findById(request.getBranchId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Branch not found with id: " + request.getBranchId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Branch", "id", request.getBranchId()));
             existingUser.setBranch(branch);
-        } else {
+        } else if (request.getRole() == Role.ADMIN) {
             existingUser.setBranch(null);
         }
 
-        return userRepository.save(existingUser);
+        return mapToResponse(userRepository.save(existingUser));
     }
 
     @Override
     public void deleteUser(Long userId) {
-        User currentUser = getCurrentUser();
-
+        User currentUser = getCurrentUserEntity();
         if (!currentUser.getRole().equals(Role.ADMIN)) {
             throw new ForbiddenException("Only admin can delete users");
         }
 
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User", "id", userId);
-        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        userRepository.deleteById(userId);
+        userRepository.delete(user);
     }
 }

@@ -11,5 +11,6 @@ public interface EmailService {
     /**
      * Sends registration confirmation email to student
      */
+
     void sendStudentRegistrationEmail(Student student);
 }

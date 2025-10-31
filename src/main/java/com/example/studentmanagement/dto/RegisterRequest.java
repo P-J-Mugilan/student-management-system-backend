@@ -14,6 +14,7 @@
 package com.example.studentmanagement.dto;
 
 import com.example.studentmanagement.entity.Role;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -76,6 +77,19 @@ public class RegisterRequest {
         this.password = password;
         this.role = role;
         this.branchId = branchId;
+    }
+
+
+    /**
+     * Validation helper to ensure that professors must be linked to a branch.
+     *
+     * @return true if role is not PROFESSOR or branchId is provided
+     */
+
+
+    @AssertTrue(message = "Branch is required for PROFESSOR role")
+    private boolean isBranchAssignmentValid() {
+        return role != Role.PROFESSOR || branchId != null;
     }
 
     // ==================== GETTER AND SETTER METHODS ====================

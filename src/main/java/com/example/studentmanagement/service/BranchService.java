@@ -1,51 +1,33 @@
-/**
- * Branch Service Interface
-
- * Manages academic branch operations including CRUD and pagination.
- * Handles branch creation, retrieval, updates, and deletion.
- */
 package com.example.studentmanagement.service;
 
 import com.example.studentmanagement.dto.BranchRequest;
-import com.example.studentmanagement.entity.Branch;
+import com.example.studentmanagement.dto.BranchResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 
+/**
+ * Service interface for managing academic branches.
+ * Provides CRUD operations with role-based access.
+ */
 public interface BranchService {
 
-    /**
-     * Creates a new academic branch with validated data
-     */
-    Branch createBranch(BranchRequest request);
+    /** Create a new branch (ADMIN only) */
+    BranchResponse createBranch(BranchRequest request);
 
-    /**
-     * Retrieves all branches in the system
-     */
-    List<Branch> getAllBranches();
+    /** Retrieve all branches (ADMIN sees all, PROFESSOR sees own) */
+    List<BranchResponse> getAllBranches();
 
-    /**
-     * Retrieves branches with pagination support
-     */
-    Page<Branch> getAllBranches(Pageable pageable);
+    /** Retrieve paginated branches (ADMIN only) */
+    Page<BranchResponse> getAllBranches(Pageable pageable);
 
-    /**
-     * Finds a specific branch by its unique identifier
-     */
-    Branch getBranchById(Long branchId);
+    /** Get a specific branch by ID (ADMIN sees all, PROFESSOR sees own) */
+    BranchResponse getBranchById(Long branchId);
 
-    /**
-     * Updates an existing branch with new information
-     */
-    Branch updateBranch(Long branchId, BranchRequest request);
+    /** Update an existing branch (ADMIN only) */
+    BranchResponse updateBranch(Long branchId, BranchRequest request);
 
-    /**
-     * Deletes a branch and handles associated relationships
-
-     * Contract:
-     * - Prevents deletion if branch has students or professors assigned
-     * - Cascades deletion appropriately based on entity relationships
-     * - Returns error if branch is in use by other entities
-     */
+    /** Delete a branch (ADMIN only, cannot delete if associated entities exist) */
     void deleteBranch(Long branchId);
 }
